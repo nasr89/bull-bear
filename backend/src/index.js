@@ -9,15 +9,26 @@ import rateLimit from 'express-rate-limit'
 import authRoutes from './routes/auth.routes.js'
 import userRoutes from './routes/user.routes.js'
 import leadRoutes from './routes/lead.routes.js'
+import playbookRoutes from './routes/playbook.routes.js'
 import { errorHandler } from './middleware/error.middleware.js'
+import { getChannel } from './queue/connection.js'
 
 const app = express()
 const PORT = process.env.PORT || 4000
 
 // ─── Security middleware ──────────────────────────────
 app.use(helmet())
+
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:3000')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean)
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true)
+    return cb(new Error(`CORS blocked: ${origin}`))
+  },
   credentials: true,
 }))
 
@@ -56,6 +67,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authLimiter, authRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/leads', leadRoutes)
+app.use('/api/playbook', playbookRoutes)
 
 // ─── 404 ───────────────────────────────────────────────
 app.use('*', (req, res) => {
@@ -68,6 +80,8 @@ app.use(errorHandler)
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`)
   console.log(`   Environment: ${process.env.NODE_ENV}`)
+  console.log(`   Allowed origins: ${allowedOrigins.join(', ')}`)
+  getChannel().catch(() => {})
 })
 
 export default app

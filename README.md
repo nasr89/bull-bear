@@ -119,20 +119,67 @@ npm run dev
 | PUT | /api/leads/:id | Authenticated |
 | DELETE | /api/leads/:id | ADMIN, SUPERADMIN |
 
-## Deploy to Production (GitHub Actions)
+## Deploy to a VPS (DigitalOcean / Hetzner / etc.)
 
-1. Add these **Secrets** to your GitHub repo (`Settings → Secrets`):
-   - `JWT_ACCESS_SECRET` — random 64-char string
-   - `JWT_REFRESH_SECRET` — random 64-char string
-   - `DEPLOY_HOST` — your server IP
-   - `DEPLOY_USER` — SSH username (e.g. `ubuntu`)
-   - `DEPLOY_KEY` — your SSH private key
+The production stack is `docker-compose.prod.yml`. It runs nginx (HTTPS via Let's Encrypt), the backend, frontend, Postgres, and RabbitMQ.
 
-2. Add these **Variables**:
-   - `CLIENT_URL` — e.g. `https://app.bullandbear.lb`
-   - `NEXT_PUBLIC_API_URL` — e.g. `https://api.bullandbear.lb`
+### One-time setup on the server
 
-3. Push to `main` — GitHub Actions will build, push images to GHCR, and deploy via SSH.
+1. **DNS** — point an `A` record for your domain at the VPS IP. Wait for it to propagate (`dig +short yourdomain.com`).
+2. **Install Docker** on the server:
+   ```bash
+   curl -fsSL https://get.docker.com | sh
+   sudo usermod -aG docker $USER && newgrp docker
+   ```
+3. **Clone the repo**:
+   ```bash
+   sudo mkdir -p /srv && sudo chown $USER /srv
+   cd /srv && git clone https://github.com/YOUR_USERNAME/bull-bear.git
+   cd bull-bear
+   ```
+4. **Configure secrets**:
+   ```bash
+   cp .env.production.example .env.production
+   # Generate strong secrets:
+   openssl rand -hex 48   # → JWT_ACCESS_SECRET
+   openssl rand -hex 48   # → JWT_REFRESH_SECRET
+   # Edit .env.production and fill in every value
+   nano .env.production
+   ```
+5. **Issue the TLS certificate** (one-time):
+   ```bash
+   bash nginx/init-letsencrypt.sh
+   ```
+6. **Start the stack**:
+   ```bash
+   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+   ```
+7. **Run the database migration** (one-time on first deploy):
+   ```bash
+   docker compose -f docker-compose.prod.yml --env-file .env.production \
+     exec backend npx prisma migrate deploy
+   docker compose -f docker-compose.prod.yml --env-file .env.production \
+     exec backend npm run db:seed   # optional: load the default users
+   ```
+8. **Verify**:
+   ```bash
+   curl -I https://yourdomain.com           # 200 OK with valid cert
+   curl    https://yourdomain.com/api/health
+   ```
+
+### Updates after the first deploy
+
+```bash
+cd /srv/bull-bear
+git pull
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+docker compose -f docker-compose.prod.yml --env-file .env.production \
+  exec backend npx prisma migrate deploy
+```
+
+### Certificate renewal
+
+The `certbot` container runs a loop that renews twice a day; nginx picks up the new cert on its next reload. No manual action needed.
 
 ## Project Structure
 

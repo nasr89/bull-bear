@@ -1,0 +1,16 @@
+# Used ONLY during initial Let's Encrypt issuance.
+# Serves the ACME challenge over HTTP, no HTTPS server defined yet.
+# Replace with app.conf.template once certs are issued.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${DOMAIN};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 404;
+    }
+}
