@@ -2,10 +2,11 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { MessageSquare, Phone, Shield, Lightbulb, Edit, Trash2 } from 'lucide-react'
+import { MessageSquare, Phone, Shield, Lightbulb, Edit, Trash2, GripVertical } from 'lucide-react'
 import DashboardLayout from '../dashboard/layout'
 import { ScriptCard } from '@/components/playbook/ScriptCard'
 import { PlaybookList } from '@/components/playbook/PlaybookList'
+import { SortableList, SortableItem } from '@/components/playbook/SortablePlaybook'
 import {
   PlaybookItemModal,
   type PlaybookCategory,
@@ -50,7 +51,7 @@ function PlaybookPageContent() {
       <div className="p-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-white">Playbook</h1>
-          <p className="text-zinc-400 text-sm mt-1">Sales scripts, sequences & guidance</p>
+          <p className="text-zinc-400 text-sm mt-1">Sales scripts, sequences & guidance. Drag to reorder (admin only).</p>
         </div>
 
         {/* Tab bar */}
@@ -84,19 +85,27 @@ function PlaybookPageContent() {
             onAdd={openAdd}
             onEdit={openEdit}
             renderItems={(items, { canEdit, onEdit, onDelete }) => (
-              <div className="space-y-4">
-                {items.map(item => (
-                  <ScriptCard
-                    key={item.id}
-                    title={item.title}
-                    body={item.body}
-                    tag={item.tag}
-                    tagColor={item.tagColor}
-                    onEdit={canEdit ? () => onEdit(item) : undefined}
-                    onDelete={canEdit ? () => onDelete(item) : undefined}
-                  />
-                ))}
-              </div>
+              <SortableList category="FOLLOWUP_SCRIPT" items={items} enabled={canEdit} strategy="vertical">
+                {(ordered) => (
+                  <div className="space-y-4">
+                    {ordered.map(item => (
+                      <SortableItem key={item.id} id={item.id} enabled={canEdit}>
+                        {({ dragHandleProps }) => (
+                          <ScriptCard
+                            title={item.title}
+                            body={item.body}
+                            tag={item.tag}
+                            tagColor={item.tagColor}
+                            onEdit={canEdit ? () => onEdit(item) : undefined}
+                            onDelete={canEdit ? () => onDelete(item) : undefined}
+                            dragHandleProps={canEdit ? dragHandleProps : undefined}
+                          />
+                        )}
+                      </SortableItem>
+                    ))}
+                  </div>
+                )}
+              </SortableList>
             )}
           />
         )}
@@ -110,24 +119,33 @@ function PlaybookPageContent() {
             onAdd={openAdd}
             onEdit={openEdit}
             renderItems={(items, { canEdit, onEdit, onDelete }) => (
-              <ol className="relative border-l-2 border-zinc-800 ml-3 space-y-6 pl-6">
-                {items.map((item, idx) => (
-                  <li key={item.id} className="relative">
-                    <span className="absolute -left-[37px] top-1 w-7 h-7 rounded-full bg-zinc-900 border-2 border-yellow-500 flex items-center justify-center text-xs font-bold text-yellow-400 font-mono">
-                      {idx + 1}
-                    </span>
-                    <div className="text-xs font-bold uppercase tracking-widest text-yellow-400 mb-2">
-                      {item.title}
-                    </div>
-                    <ScriptCard
-                      title=""
-                      body={item.body}
-                      onEdit={canEdit ? () => onEdit(item) : undefined}
-                      onDelete={canEdit ? () => onDelete(item) : undefined}
-                    />
-                  </li>
-                ))}
-              </ol>
+              <SortableList category="WHATSAPP_MESSAGE" items={items} enabled={canEdit} strategy="vertical">
+                {(ordered) => (
+                  <ol className="relative border-l-2 border-zinc-800 ml-3 space-y-6 pl-6">
+                    {ordered.map((item, idx) => (
+                      <SortableItem key={item.id} id={item.id} enabled={canEdit}>
+                        {({ dragHandleProps }) => (
+                          <li className="relative list-none">
+                            <span className="absolute -left-[37px] top-1 w-7 h-7 rounded-full bg-zinc-900 border-2 border-yellow-500 flex items-center justify-center text-xs font-bold text-yellow-400 font-mono">
+                              {idx + 1}
+                            </span>
+                            <div className="text-xs font-bold uppercase tracking-widest text-yellow-400 mb-2">
+                              {item.title}
+                            </div>
+                            <ScriptCard
+                              title=""
+                              body={item.body}
+                              onEdit={canEdit ? () => onEdit(item) : undefined}
+                              onDelete={canEdit ? () => onDelete(item) : undefined}
+                              dragHandleProps={canEdit ? dragHandleProps : undefined}
+                            />
+                          </li>
+                        )}
+                      </SortableItem>
+                    ))}
+                  </ol>
+                )}
+              </SortableList>
             )}
           />
         )}
@@ -141,30 +159,51 @@ function PlaybookPageContent() {
             onAdd={openAdd}
             onEdit={openEdit}
             renderItems={(items, { canEdit, onEdit, onDelete }) => (
-              <div className="space-y-3">
-                {items.map(item => (
-                  <div key={item.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="text-sm font-bold text-red-400 flex items-center gap-2">
-                        <span>❌</span> <span>{item.title}</span>
-                      </div>
-                      {canEdit && (
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <button onClick={() => onEdit(item)} className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-yellow-400 transition-colors" title="Edit">
-                            <Edit size={13} />
-                          </button>
-                          <button onClick={() => onDelete(item)} className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-red-400 transition-colors" title="Delete">
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-sm text-zinc-300 leading-relaxed border-l-2 border-green-500/60 pl-4">
-                      {item.body}
-                    </div>
+              <SortableList category="OBJECTION" items={items} enabled={canEdit} strategy="vertical">
+                {(ordered) => (
+                  <div className="space-y-3">
+                    {ordered.map(item => (
+                      <SortableItem key={item.id} id={item.id} enabled={canEdit}>
+                        {({ dragHandleProps }) => (
+                          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+                            <div className="flex items-start justify-between gap-3 mb-3">
+                              <div className="flex items-start gap-2 flex-1 min-w-0">
+                                {canEdit && (
+                                  <button
+                                    type="button"
+                                    {...dragHandleProps}
+                                    className="text-zinc-600 hover:text-zinc-300 transition-colors cursor-grab active:cursor-grabbing mt-0.5"
+                                    title="Drag to reorder"
+                                    onClick={e => e.preventDefault()}
+                                  >
+                                    <GripVertical size={14} />
+                                  </button>
+                                )}
+                                <div className="text-sm font-bold text-red-400 flex items-center gap-2">
+                                  <span>❌</span> <span>{item.title}</span>
+                                </div>
+                              </div>
+                              {canEdit && (
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  <button onClick={() => onEdit(item)} className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-yellow-400 transition-colors" title="Edit">
+                                    <Edit size={13} />
+                                  </button>
+                                  <button onClick={() => onDelete(item)} className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-red-400 transition-colors" title="Delete">
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-sm text-zinc-300 leading-relaxed border-l-2 border-green-500/60 pl-4">
+                              {item.body}
+                            </div>
+                          </div>
+                        )}
+                      </SortableItem>
+                    ))}
                   </div>
-                ))}
-              </div>
+                )}
+              </SortableList>
             )}
           />
         )}
@@ -178,27 +217,44 @@ function PlaybookPageContent() {
             onAdd={openAdd}
             onEdit={openEdit}
             renderItems={(items, { canEdit, onEdit, onDelete }) => (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {items.map(item => (
-                  <div key={item.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 relative group">
-                    {canEdit && (
-                      <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => onEdit(item)} className="p-1.5 rounded-lg bg-zinc-800 text-zinc-400 hover:text-yellow-400 transition-colors" title="Edit">
-                          <Edit size={12} />
-                        </button>
-                        <button onClick={() => onDelete(item)} className="p-1.5 rounded-lg bg-zinc-800 text-zinc-400 hover:text-red-400 transition-colors" title="Delete">
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    )}
-                    {item.tag && <div className="text-2xl mb-3">{item.tag}</div>}
-                    <h3 className="text-xs font-bold uppercase tracking-widest text-yellow-400 mb-2">
-                      {item.title}
-                    </h3>
-                    <p className="text-sm text-zinc-400 leading-relaxed">{item.body}</p>
+              <SortableList category="PRO_TIP" items={items} enabled={canEdit} strategy="grid">
+                {(ordered) => (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {ordered.map(item => (
+                      <SortableItem key={item.id} id={item.id} enabled={canEdit}>
+                        {({ dragHandleProps }) => (
+                          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 relative group">
+                            {canEdit && (
+                              <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  type="button"
+                                  {...dragHandleProps}
+                                  className="p-1.5 rounded-lg bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors cursor-grab active:cursor-grabbing"
+                                  title="Drag to reorder"
+                                  onClick={e => e.preventDefault()}
+                                >
+                                  <GripVertical size={12} />
+                                </button>
+                                <button onClick={() => onEdit(item)} className="p-1.5 rounded-lg bg-zinc-800 text-zinc-400 hover:text-yellow-400 transition-colors" title="Edit">
+                                  <Edit size={12} />
+                                </button>
+                                <button onClick={() => onDelete(item)} className="p-1.5 rounded-lg bg-zinc-800 text-zinc-400 hover:text-red-400 transition-colors" title="Delete">
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            )}
+                            {item.tag && <div className="text-2xl mb-3">{item.tag}</div>}
+                            <h3 className="text-xs font-bold uppercase tracking-widest text-yellow-400 mb-2">
+                              {item.title}
+                            </h3>
+                            <p className="text-sm text-zinc-400 leading-relaxed">{item.body}</p>
+                          </div>
+                        )}
+                      </SortableItem>
+                    ))}
                   </div>
-                ))}
-              </div>
+                )}
+              </SortableList>
             )}
           />
         )}

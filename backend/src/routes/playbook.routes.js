@@ -5,6 +5,7 @@ import {
   createItem,
   updateItem,
   deleteItem,
+  reorderItems,
 } from '../controllers/playbook.controller.js'
 import { authenticate, authorize } from '../middleware/auth.middleware.js'
 
@@ -41,6 +42,8 @@ router.put(
   ],
   updateItem
 )
+
+router.post('/reorder', authorize('ADMIN', 'SUPERADMIN'), reorderItems)
 
 router.delete('/:id', authorize('ADMIN', 'SUPERADMIN'), deleteItem)
 

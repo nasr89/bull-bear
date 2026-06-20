@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Copy, Check, Edit, Trash2 } from 'lucide-react'
+import { Copy, Check, Edit, Trash2, GripVertical } from 'lucide-react'
 
 const TAG_COLORS: Record<string, string> = {
   gold: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
@@ -17,9 +17,10 @@ type Props = {
   tagColor?: string | null
   onEdit?: () => void
   onDelete?: () => void
+  dragHandleProps?: any
 }
 
-export function ScriptCard({ title, body, tag, tagColor, onEdit, onDelete }: Props) {
+export function ScriptCard({ title, body, tag, tagColor, onEdit, onDelete, dragHandleProps }: Props) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
@@ -38,6 +39,17 @@ export function ScriptCard({ title, body, tag, tagColor, onEdit, onDelete }: Pro
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
       <div className="px-5 py-3 border-b border-zinc-800 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 flex-wrap">
+          {dragHandleProps && (
+            <button
+              type="button"
+              {...dragHandleProps}
+              className="text-zinc-600 hover:text-zinc-300 transition-colors cursor-grab active:cursor-grabbing"
+              title="Drag to reorder"
+              onClick={e => e.preventDefault()}
+            >
+              <GripVertical size={14} />
+            </button>
+          )}
           {tag && (
             <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border uppercase tracking-wide ${tagClass}`}>
               {tag}
