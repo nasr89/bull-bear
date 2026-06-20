@@ -2,7 +2,8 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -14,6 +15,29 @@ enum Role {
   SUPERADMIN
   ADMIN
   USER
+}
+
+enum PlaybookCategory {
+  FOLLOWUP_SCRIPT
+  WHATSAPP_MESSAGE
+  OBJECTION
+  PRO_TIP
+}
+
+model PlaybookItem {
+  id        String           @id @default(uuid())
+  category  PlaybookCategory
+  title     String
+  body      String
+  tag       String?
+  tagColor  String?
+  sortOrder Int              @default(0)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([category, title])
+  @@index([category, sortOrder])
+  @@map("playbook_items")
 }
 
 model User {

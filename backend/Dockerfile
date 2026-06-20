@@ -1,23 +1,20 @@
 FROM node:22-alpine AS base
+RUN apk add --no-cache openssl
 WORKDIR /app
-
-FROM base AS deps
-COPY package*.json ./
-RUN npm ci --only=production
 
 FROM base AS build
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 COPY . .
 RUN npx prisma generate
+RUN npm prune --omit=dev
 
 FROM base AS runner
 ENV NODE_ENV=production
-COPY --from=deps /app/node_modules ./node_modules
+COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/src ./src
 COPY --from=build /app/prisma ./prisma
-COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
-COPY package.json ./
+COPY --from=build /app/package.json ./
 
 EXPOSE 4000
 
