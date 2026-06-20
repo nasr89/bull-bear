@@ -67,6 +67,10 @@ export async function createLead(req, res, next) {
 
     const { name, phone, email, channel, status, followUpDate, notes, assignedToId } = req.body
 
+    // Only ADMIN+ may assign a lead to another user. USER always gets it themselves.
+    const finalAssignedToId =
+      req.user.role !== 'USER' && assignedToId ? assignedToId : req.user.id
+
     const lead = await prisma.lead.create({
       data: {
         name,
@@ -76,7 +80,7 @@ export async function createLead(req, res, next) {
         status: status || 'New',
         followUpDate: followUpDate ? new Date(followUpDate) : null,
         notes,
-        assignedToId: assignedToId || req.user.id,
+        assignedToId: finalAssignedToId,
       },
       include: { assignedTo: { select: { id: true, name: true, email: true } } },
     })

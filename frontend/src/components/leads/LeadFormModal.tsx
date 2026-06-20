@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
+import { useAuth } from '@/context/AuthContext'
 
 export const LEAD_CHANNELS = ['WhatsApp', 'Instagram', 'LinkedIn', 'Referral', 'Cold Call', 'Other'] as const
 export const LEAD_STATUSES = ['New', 'Contacted', 'Interested', 'Follow-Up', 'Converted', 'Lost'] as const
@@ -33,13 +34,27 @@ const EMPTY = {
   status: 'New' as typeof LEAD_STATUSES[number],
   followUpDate: '',
   notes: '',
+  assignedToId: '',
 }
+
+type UserOption = { id: string; name: string; email: string; role: string; isActive: boolean }
 
 export function LeadFormModal({ open, lead, onClose }: Props) {
   const qc = useQueryClient()
+  const { hasRole, user } = useAuth()
+  const canAssign = hasRole('ADMIN', 'SUPERADMIN')
   const isEdit = !!lead
   const [form, setForm] = useState(EMPTY)
   const [formError, setFormError] = useState('')
+
+  // Only admins need the user list, and only when the modal is open
+  const { data: usersData } = useQuery({
+    queryKey: ['users-for-assignment'],
+    queryFn: () => api.get('/users').then(r => r.data),
+    enabled: open && canAssign,
+    staleTime: 60_000,
+  })
+  const assignableUsers: UserOption[] = (usersData?.users || []).filter((u: UserOption) => u.isActive)
 
   useEffect(() => {
     if (lead) {
@@ -51,16 +66,17 @@ export function LeadFormModal({ open, lead, onClose }: Props) {
         status: lead.status,
         followUpDate: lead.followUpDate ? lead.followUpDate.slice(0, 10) : '',
         notes: lead.notes || '',
+        assignedToId: lead.assignedTo?.id || '',
       })
     } else {
-      setForm(EMPTY)
+      setForm({ ...EMPTY, assignedToId: canAssign ? (user?.id || '') : '' })
     }
     setFormError('')
-  }, [lead, open])
+  }, [lead, open, canAssign, user?.id])
 
   const mutation = useMutation({
     mutationFn: async (payload: typeof EMPTY) => {
-      const body = {
+      const body: any = {
         name: payload.name.trim(),
         phone: payload.phone.trim() || undefined,
         email: payload.email.trim() || undefined,
@@ -68,6 +84,9 @@ export function LeadFormModal({ open, lead, onClose }: Props) {
         status: payload.status,
         followUpDate: payload.followUpDate || undefined,
         notes: payload.notes.trim() || undefined,
+      }
+      if (canAssign && payload.assignedToId) {
+        body.assignedToId = payload.assignedToId
       }
       if (isEdit && lead) return api.put(`/leads/${lead.id}`, body)
       return api.post('/leads', body)
@@ -165,14 +184,33 @@ export function LeadFormModal({ open, lead, onClose }: Props) {
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-widest text-zinc-400 mb-2">Follow-up Date</label>
-            <input
-              type="date"
-              value={form.followUpDate}
-              onChange={e => setForm(f => ({ ...f, followUpDate: e.target.value }))}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-yellow-500"
-            />
+          <div className={canAssign ? 'grid grid-cols-2 gap-4' : ''}>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-widest text-zinc-400 mb-2">Follow-up Date</label>
+              <input
+                type="date"
+                value={form.followUpDate}
+                onChange={e => setForm(f => ({ ...f, followUpDate: e.target.value }))}
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-yellow-500"
+              />
+            </div>
+            {canAssign && (
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-zinc-400 mb-2">Assigned to</label>
+                <select
+                  value={form.assignedToId}
+                  onChange={e => setForm(f => ({ ...f, assignedToId: e.target.value }))}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-yellow-500"
+                >
+                  <option value="">— Unassigned —</option>
+                  {assignableUsers.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} ({u.role})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <div>
