@@ -10,6 +10,7 @@ import authRoutes from './routes/auth.routes.js'
 import userRoutes from './routes/user.routes.js'
 import leadRoutes from './routes/lead.routes.js'
 import playbookRoutes from './routes/playbook.routes.js'
+import auditRoutes from './routes/audit.routes.js'
 import { errorHandler } from './middleware/error.middleware.js'
 import { getChannel } from './queue/connection.js'
 
@@ -68,6 +69,7 @@ app.use('/api/auth', authLimiter, authRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/leads', leadRoutes)
 app.use('/api/playbook', playbookRoutes)
+app.use('/api/audit', auditRoutes)
 
 // ─── 404 ───────────────────────────────────────────────
 app.use('*', (req, res) => {
