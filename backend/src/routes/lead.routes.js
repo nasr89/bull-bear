@@ -3,6 +3,7 @@ import { body } from 'express-validator'
 import {
   getLeads,
   getLeadById,
+  getLeadStats,
   createLead,
   updateLead,
   deleteLead,
@@ -13,6 +14,7 @@ const router = Router()
 
 router.use(authenticate)
 
+router.get('/stats', getLeadStats)
 router.get('/', getLeads)
 router.get('/:id', getLeadById)
 

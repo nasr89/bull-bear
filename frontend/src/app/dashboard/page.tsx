@@ -22,19 +22,25 @@ function StatCard({ label, value, icon: Icon, color }: {
 export default function DashboardPage() {
   const { user } = useAuth()
 
-  const { data: leadsData } = useQuery({
+  // Aggregated counts (one tiny query, no row scanning on the client)
+  const { data: statsData } = useQuery({
     queryKey: ['leads-stats'],
-    queryFn: () => api.get('/leads?limit=1000').then(r => r.data),
+    queryFn: () => api.get('/leads/stats').then(r => r.data),
   })
 
-  const leads = leadsData?.leads || []
-  const today = new Date().toISOString().split('T')[0]
+  // Just the recent 8 leads for the activity list
+  const { data: recentData } = useQuery({
+    queryKey: ['leads-recent'],
+    queryFn: () => api.get('/leads', { params: { limit: 8, page: 1 } }).then(r => r.data),
+  })
+
+  const leads = recentData?.leads || []
 
   const stats = {
-    total: leadsData?.total || 0,
-    converted: leads.filter((l: any) => l.status === 'Converted').length,
-    interested: leads.filter((l: any) => l.status === 'Interested').length,
-    dueToday: leads.filter((l: any) => l.followUpDate?.startsWith(today) && l.status !== 'Converted').length,
+    total: statsData?.total || 0,
+    converted: statsData?.converted || 0,
+    interested: statsData?.interested || 0,
+    dueToday: statsData?.dueToday || 0,
   }
 
   return (
