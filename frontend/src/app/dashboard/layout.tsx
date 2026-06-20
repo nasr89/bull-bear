@@ -4,11 +4,12 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { RouteGuard } from '@/components/layout/RouteGuard'
 import { useAuth } from '@/context/AuthContext'
-import { Users, BarChart2, LogOut, TrendingUp } from 'lucide-react'
+import { Users, BarChart2, LogOut, TrendingUp, BookOpen } from 'lucide-react'
 
 const NAV = [
   { href: '/dashboard', label: 'Dashboard', icon: BarChart2, roles: ['SUPERADMIN', 'ADMIN', 'USER'] },
   { href: '/leads', label: 'Leads', icon: TrendingUp, roles: ['SUPERADMIN', 'ADMIN', 'USER'] },
+  { href: '/playbook', label: 'Playbook', icon: BookOpen, roles: ['SUPERADMIN', 'ADMIN', 'USER'] },
   { href: '/users', label: 'Users', icon: Users, roles: ['SUPERADMIN', 'ADMIN'] },
 ]
 
