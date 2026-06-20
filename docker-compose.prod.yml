@@ -59,6 +59,28 @@ services:
     networks:
       - bb_net
 
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: bb_worker
+    restart: unless-stopped
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      CLIENT_URL: ${CLIENT_URL}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-Bull & Bear <noreply@bullandbear.lb>}
+    command: ['node', 'src/queue/worker.js']
+    networks:
+      - bb_net
+
   frontend:
     build:
       context: ./frontend

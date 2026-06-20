@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { validationResult } from 'express-validator'
 import { prisma } from '../config/prisma.js'
+import { logAudit } from '../services/audit.js'
 
 const SAFE_USER_SELECT = {
   id: true,
@@ -82,9 +83,7 @@ export async function createUser(req, res, next) {
       select: SAFE_USER_SELECT,
     })
 
-    await prisma.auditLog.create({
-      data: { userId: req.user.id, action: 'CREATE_USER', resource: 'User', resourceId: user.id, details: { role: user.role } },
-    })
+    logAudit({ userId: req.user.id, action: 'USER_CREATED', resource: 'User', resourceId: user.id, details: { role: user.role, email: user.email } })
 
     res.status(201).json({ user })
   } catch (err) {
@@ -125,9 +124,7 @@ export async function updateUser(req, res, next) {
       select: SAFE_USER_SELECT,
     })
 
-    await prisma.auditLog.create({
-      data: { userId: req.user.id, action: 'UPDATE_USER', resource: 'User', resourceId: updated.id, details: { changes: Object.keys(data) } },
-    })
+    logAudit({ userId: req.user.id, action: 'USER_UPDATED', resource: 'User', resourceId: updated.id, details: { changes: Object.keys(data) } })
 
     res.json({ user: updated })
   } catch (err) {
@@ -145,9 +142,7 @@ export async function deleteUser(req, res, next) {
 
     await prisma.user.delete({ where: { id: req.params.id } })
 
-    await prisma.auditLog.create({
-      data: { userId: req.user.id, action: 'DELETE_USER', resource: 'User', resourceId: req.params.id },
-    })
+    logAudit({ userId: req.user.id, action: 'USER_DELETED', resource: 'User', resourceId: req.params.id, details: { email: targetUser.email, role: targetUser.role } })
 
     res.json({ message: 'User deleted successfully' })
   } catch (err) {

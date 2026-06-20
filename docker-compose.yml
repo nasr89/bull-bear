@@ -17,6 +17,24 @@ services:
       timeout: 5s
       retries: 5
 
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: bb_rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: bullbear
+      RABBITMQ_DEFAULT_PASS: bullbear
+    ports:
+      - '5672:5672'   # AMQP (for the backend + worker)
+      - '15672:15672' # management UI at http://localhost:15672 (bullbear/bullbear)
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -25,6 +43,8 @@ services:
     restart: unless-stopped
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/bullandbear?schema=public
@@ -36,8 +56,29 @@ services:
       NODE_ENV: production
       CLIENT_URL: ${CLIENT_URL:-http://localhost:3000}
       BCRYPT_ROUNDS: 12
+      RABBITMQ_URL: amqp://bullbear:bullbear@rabbitmq:5672
     ports:
       - '4000:4000'
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: bb_worker
+    restart: unless-stopped
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_URL: amqp://bullbear:bullbear@rabbitmq:5672
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:3000}
+      # Leave SMTP_HOST unset in dev → worker logs emails to stdout instead of sending.
+      # SMTP_HOST: smtp.example.com
+      # SMTP_PORT: 587
+      # SMTP_USER: user
+      # SMTP_PASS: pass
+      # SMTP_FROM: Bull & Bear <noreply@bullandbear.lb>
+    command: ['node', 'src/queue/worker.js']
 
   frontend:
     build:
@@ -54,3 +95,4 @@ services:
 
 volumes:
   postgres_data:
+  rabbitmq_data:

@@ -1,5 +1,50 @@
 import { validationResult } from 'express-validator'
 import { prisma } from '../config/prisma.js'
+import { logAudit } from '../services/audit.js'
+import { publishLeadAssigned } from '../queue/publisher.js'
+
+export async function getLeadStats(req, res, next) {
+  try {
+    const where = {}
+    if (req.user.role === 'USER') where.assignedToId = req.user.id
+
+    const today = new Date()
+    const todayEnd = new Date(today)
+    todayEnd.setHours(23, 59, 59, 999)
+
+    const [total, byStatusRaw, dueToday] = await prisma.$transaction([
+      prisma.lead.count({ where }),
+      prisma.lead.groupBy({
+        by: ['status'],
+        where,
+        _count: { status: true },
+      }),
+      prisma.lead.count({
+        where: {
+          ...where,
+          followUpDate: { lte: todayEnd },
+          status: { notIn: ['Converted', 'Lost'] },
+        },
+      }),
+    ])
+
+    const byStatus = byStatusRaw.reduce((acc, row) => {
+      acc[row.status] = row._count.status
+      return acc
+    }, {})
+
+    res.json({
+      total,
+      byStatus,
+      converted: byStatus.Converted || 0,
+      interested: byStatus.Interested || 0,
+      contacted: byStatus.Contacted || 0,
+      dueToday,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
 
 export async function getLeads(req, res, next) {
   try {
@@ -85,6 +130,24 @@ export async function createLead(req, res, next) {
       include: { assignedTo: { select: { id: true, name: true, email: true } } },
     })
 
+    logAudit({
+      userId: req.user.id,
+      action: 'LEAD_CREATED',
+      resource: 'Lead',
+      resourceId: lead.id,
+      details: { name: lead.name, assignedToId: lead.assignedToId },
+    })
+
+    // Notify the assignee if it's someone other than the creator
+    if (lead.assignedToId && lead.assignedToId !== req.user.id && lead.assignedTo) {
+      publishLeadAssigned({
+        leadId: lead.id,
+        leadName: lead.name,
+        assignee: lead.assignedTo,
+        assignedBy: { name: req.user.name },
+      }).catch(() => {})
+    }
+
     res.status(201).json({ lead })
   } catch (err) {
     next(err)
@@ -119,6 +182,29 @@ export async function updateLead(req, res, next) {
       include: { assignedTo: { select: { id: true, name: true, email: true } } },
     })
 
+    logAudit({
+      userId: req.user.id,
+      action: 'LEAD_UPDATED',
+      resource: 'Lead',
+      resourceId: updated.id,
+      details: { changed: Object.keys(data) },
+    })
+
+    // Reassignment? Notify the new assignee.
+    const reassigned =
+      data.assignedToId &&
+      data.assignedToId !== lead.assignedToId &&
+      updated.assignedToId !== req.user.id &&
+      updated.assignedTo
+    if (reassigned) {
+      publishLeadAssigned({
+        leadId: updated.id,
+        leadName: updated.name,
+        assignee: updated.assignedTo,
+        assignedBy: { name: req.user.name },
+      }).catch(() => {})
+    }
+
     res.json({ lead: updated })
   } catch (err) {
     next(err)
@@ -136,6 +222,14 @@ export async function deleteLead(req, res, next) {
     }
 
     await prisma.lead.delete({ where: { id: req.params.id } })
+
+    logAudit({
+      userId: req.user.id,
+      action: 'LEAD_DELETED',
+      resource: 'Lead',
+      resourceId: req.params.id,
+      details: { name: lead.name },
+    })
 
     res.json({ message: 'Lead deleted' })
   } catch (err) {

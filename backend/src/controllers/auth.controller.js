@@ -7,6 +7,7 @@ import {
   verifyRefreshToken,
   getRefreshTokenExpiry,
 } from '../utils/jwt.js'
+import { logAudit } from '../services/audit.js'
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -27,10 +28,14 @@ export async function login(req, res, next) {
     const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } })
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
+      if (user) {
+        logAudit({ userId: user.id, action: 'LOGIN_FAILED', resource: 'Auth', details: { email } })
+      }
       return res.status(401).json({ error: 'Invalid email or password' })
     }
 
     if (!user.isActive) {
+      logAudit({ userId: user.id, action: 'LOGIN_BLOCKED', resource: 'Auth', details: { reason: 'inactive' } })
       return res.status(403).json({ error: 'Account is deactivated' })
     }
 
@@ -49,6 +54,8 @@ export async function login(req, res, next) {
 
     // Set httpOnly cookie
     res.cookie('refreshToken', refreshToken, COOKIE_OPTIONS)
+
+    logAudit({ userId: user.id, action: 'LOGIN_SUCCESS', resource: 'Auth' })
 
     res.json({
       accessToken,
@@ -120,8 +127,11 @@ export async function refresh(req, res, next) {
 export async function logout(req, res, next) {
   try {
     const token = req.cookies.refreshToken
+    let userId = null
 
     if (token) {
+      const stored = await prisma.refreshToken.findUnique({ where: { token } })
+      userId = stored?.userId || null
       await prisma.refreshToken.updateMany({
         where: { token },
         data: { isRevoked: true },
@@ -129,6 +139,7 @@ export async function logout(req, res, next) {
     }
 
     res.clearCookie('refreshToken')
+    if (userId) logAudit({ userId, action: 'LOGOUT', resource: 'Auth' })
     res.json({ message: 'Logged out successfully' })
   } catch (err) {
     next(err)
