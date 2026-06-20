@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
-import { Plus, Trash2, Edit, Search, ChevronLeft, ChevronRight, Phone, Mail } from 'lucide-react'
+import { Plus, Trash2, Edit, Search, ChevronLeft, ChevronRight, Phone, Mail, Send } from 'lucide-react'
 import DashboardLayout from '../dashboard/layout'
 import {
   LeadFormModal,
@@ -12,6 +12,7 @@ import {
   LEAD_STATUSES,
   type Lead,
 } from '@/components/leads/LeadFormModal'
+import { WhatsAppModal } from '@/components/leads/WhatsAppModal'
 
 const STATUS_COLORS: Record<string, string> = {
   New: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
@@ -53,6 +54,8 @@ export default function LeadsPage() {
 
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<Lead | undefined>()
+  const [waOpen, setWaOpen] = useState(false)
+  const [waLead, setWaLead] = useState<Lead | undefined>()
 
   const queryParams = useMemo(() => {
     const p: Record<string, string> = { page: String(page), limit: String(PAGE_SIZE) }
@@ -213,6 +216,15 @@ export default function LeadsPage() {
                   <td className="px-6 py-4 text-zinc-400 text-xs">{l.assignedTo?.name || '—'}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2 justify-end">
+                      {l.phone && (
+                        <button
+                          onClick={() => { setWaLead(l); setWaOpen(true) }}
+                          className="p-1.5 rounded-lg hover:bg-zinc-700 text-zinc-400 hover:text-green-400 transition-colors"
+                          title="Send via WhatsApp"
+                        >
+                          <Send size={14} />
+                        </button>
+                      )}
                       <button
                         onClick={() => openEdit(l)}
                         className="p-1.5 rounded-lg hover:bg-zinc-700 text-zinc-400 hover:text-yellow-400 transition-colors"
@@ -275,6 +287,7 @@ export default function LeadsPage() {
         )}
 
         <LeadFormModal open={showModal} lead={editing} onClose={() => setShowModal(false)} />
+        <WhatsAppModal open={waOpen} lead={waLead} onClose={() => setWaOpen(false)} />
       </div>
     </DashboardLayout>
   )
